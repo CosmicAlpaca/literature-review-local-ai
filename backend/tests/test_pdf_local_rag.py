@@ -45,3 +45,13 @@ def test_graph_links_terms_to_document_pages():
     assert graph['nodes'] and graph['edges']
     assert all(n['sources'][0]['page_num']==3 for n in graph['nodes'])
     assert all(e['source_ref']['doc_name']=='paper.pdf' for e in graph['edges'])
+
+
+def test_cold_reader_starts_asynchronously(monkeypatch):
+    calls=[]
+    monkeypatch.setattr(pdf_rag, '_reader', None)
+    monkeypatch.setattr(pdf_rag, 'start_reader_warmup', lambda: calls.append(True))
+    import pytest
+    with pytest.raises(RuntimeError, match='local_reader_loading'):
+        pdf_rag._answer_with_model('Question', 'Context')
+    assert calls == [True]

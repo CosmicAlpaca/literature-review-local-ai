@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name)
 
+@app.on_event("startup")
+def warm_pdf_reader():
+    from app.services.pdf_rag import start_reader_warmup
+    start_reader_warmup()
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins(),

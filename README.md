@@ -35,3 +35,4 @@ The example backend environment enables Crossref, local reranking, and local abs
 Search uses `cross-encoder/ms-marco-MiniLM-L6-v2`; PDF embeddings use `sentence-transformers/all-MiniLM-L6-v2`; the PDF reader uses `google/flan-t5-small`. Consult the model cards for terms and limitations. `ml/scripts/train_scifact_experiment.py` demonstrates a query-separated fine-tuning experiment using BEIR SciFact; install `datasets` and `accelerate` for training. Its small held-out evaluation is not evidence of general performance.
 
 This public snapshot excludes legacy experiments, upstream Scopus spreadsheets, notebook outputs and credentials. No license is granted here for upstream code or datasets; check the original project and applicable model and dataset licenses.
+`nThe PDF reader loads in the background on startup. While it is warming up, chat returns cited passages; retry after loading finishes.

@@ -1,7 +1,7 @@
 """Local, page-cited PDF retrieval and extractive question answering."""
 from __future__ import annotations
 import hashlib, logging, re
-from threading import Lock
+from threading import Lock, Thread
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
@@ -105,14 +105,35 @@ class PdfRagStore:
     def is_empty(self):return not self.chunks
 
 _reader=None
+_reader_loading=False
+_reader_lock=Lock()
+
+def start_reader_warmup():
+    """Download/load in a daemon so a cold chat request does not hang."""
+    global _reader_loading
+    with _reader_lock:
+        if _reader is not None or _reader_loading:
+            return
+        _reader_loading=True
+    def load():
+        global _reader, _reader_loading
+        try:
+            from transformers import AutoTokenizer,AutoModelForSeq2SeqLM
+            tokenizer=AutoTokenizer.from_pretrained('google/flan-t5-small')
+            model=AutoModelForSeq2SeqLM.from_pretrained('google/flan-t5-small');model.eval()
+            with _reader_lock:
+                _reader=(tokenizer,model)
+        except Exception:
+            logger.exception('Local reader warm-up failed')
+        finally:
+            with _reader_lock:
+                _reader_loading=False
+    Thread(target=load,daemon=True,name='pdf-reader-warmup').start()
 
 def _answer_with_model(question:str,context:str,history:list[dict[str,str]]|None=None)->str:
-    global _reader
     if _reader is None:
-        from transformers import AutoTokenizer,AutoModelForSeq2SeqLM
-        tokenizer=AutoTokenizer.from_pretrained('google/flan-t5-small')
-        model=AutoModelForSeq2SeqLM.from_pretrained('google/flan-t5-small');model.eval()
-        _reader=(tokenizer,model)
+        start_reader_warmup()
+        raise RuntimeError('local_reader_loading')
     import torch
     tokenizer,model=_reader
     turns='\n'.join(f"{x['role']}: {x['content'][:240]}" for x in (history or [])[-4:])
@@ -136,10 +157,12 @@ def answer_question(store:PdfRagStore,question:str,history:list[dict[str,str]]|N
         if len(answer)>=3 and answer.casefold() not in {'unknown','not known','not available','i do not know'}:
             sources='; '.join(c.citation_label for c in chunks)
             return RagAnswer(f'AI answer: {answer}\n\nSources consulted: {sources}',chunks)
+    except RuntimeError as exc:
+        if str(exc) != 'local_reader_loading': logger.exception('Local reader unavailable')
     except Exception:
         logger.exception('Local reader unavailable')
     evidence='\n\n'.join(f'{c.citation_label} {c.text[:500]}' for c in chunks[:2])
-    return RagAnswer('I could not generate an answer from the evidence. These passages may help:\n\n'+evidence,chunks[:2],error='evidence_only')
+    return RagAnswer('The AI reader is warming up or could not answer. These passages may help; try again shortly:\n\n'+evidence,chunks[:2],error='evidence_only')
 
 def get_document_summary(store:PdfRagStore,doc_name:str|None=None)->str:
     chunks=[c for c in store.chunks if not doc_name or c.doc_name==doc_name]
