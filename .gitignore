@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.venv/
+*.sqlite3
+*.safetensors
+*.bin
+*.pt
+*.pth
+ml/models/
+!.env.local.example

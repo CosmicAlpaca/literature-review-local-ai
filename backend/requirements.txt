@@ -1,0 +1,21 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+alembic
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.3.0
+pydantic
+pydantic-settings
+httpx
+email-validator
+openpyxl
+python-multipart
+pandas
+elsapy
+# Phase 4 local reranker (optional — only needed when LOCAL_RERANKER_PROVIDER=local)
+sentence-transformers>=3.0.0
+numpy
+pymupdf>=1.24,<2
+psycopg[binary]>=3.1
